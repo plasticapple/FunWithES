@@ -1,8 +1,10 @@
-﻿using System.Linq;
+﻿using System;
+using System.Linq;
 using System.Threading.Tasks;
 using Common.messagebus;
 using HardwareService.domain.query_model;
 using MassTransit;
+using StackExchange.Redis;
 
 namespace HardwareService.domain.consumers
 {   
@@ -16,6 +18,12 @@ namespace HardwareService.domain.consumers
                 SensorId = context.Message.SensorId
             };
             ReadModelMock.Sensorsdata.Add(dto);
+
+            ConnectionMultiplexer redis = ConnectionMultiplexer.Connect("localhost");
+            IDatabase db = redis.GetDatabase();
+
+            
+            db.StringSet(context.Message.SensorId, dto);
 
             return Task.CompletedTask;
         }

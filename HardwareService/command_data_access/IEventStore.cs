@@ -12,7 +12,7 @@ namespace HardwareService.command_data_access
     public interface IEventStore
     {
         void SaveEvents(Guid aggregateId, IEnumerable<Event> events, int expectedVersion);
-        List<Event> GetEventsForAggregate(Guid aggregateId);
+        //List<Event> GetEventsForAggregate(Guid aggregateId);
 
         void StartEventListener(IBus bus);
 

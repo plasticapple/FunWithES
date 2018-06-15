@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using HardwareService.command_data_access;
 using HardwareService.domain;
+using StackExchange.Redis;
 
 namespace HardwareService.data_access
 {
@@ -23,10 +24,13 @@ namespace HardwareService.data_access
 
         public T GetById(Guid id)
         {
-            var obj = new T();//lots of ways to do this
-            var e = _storage.GetEventsForAggregate(id);
-            obj.LoadsFromHistory(e);
-            return obj;
+            //var obj = new T();//lots of ways to do this
+            //var e = _storage.GetEventsForAggregate(id);
+            //obj.LoadsFromHistory(e);
+            ConnectionMultiplexer redis = ConnectionMultiplexer.Connect("localhost");
+            IDatabase db = redis.GetDatabase();
+            var redisValue = db.StringGet(id.ToString());
+            return  null;      
         }
     }
 }
