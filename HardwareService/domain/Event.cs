@@ -6,8 +6,14 @@ using System.Threading.Tasks;
 
 namespace HardwareService.domain
 {
-    public class Event 
+    public class Event
     {
+        public Type EventType;
         public int Version;
+
+        public Event()
+        {
+            EventType = this.GetType();
+        }
     }
 }

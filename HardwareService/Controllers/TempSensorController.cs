@@ -42,8 +42,8 @@ namespace HardwareService.Controllers
 
             ////TEST
 
-            //var addUserEndpoint = await _bus.GetSendEndpoint(new Uri("rabbitmq://localhost/SensorCommands"));
-           
+            var addUserEndpoint = await _bus.GetSendEndpoint(new Uri("rabbitmq://localhost/SensorCommands"));
+
             //await addUserEndpoint.Send<CreateSensorCommand>(new
             //{
             //    SensorId = Guid.NewGuid(),

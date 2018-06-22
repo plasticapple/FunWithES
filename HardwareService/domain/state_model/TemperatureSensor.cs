@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Common.messagebus;
 using HardwareService;
+using HardwareService.domain.events;
 
 
 namespace HardwareService.domain.model

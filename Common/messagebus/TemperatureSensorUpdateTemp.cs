@@ -2,12 +2,12 @@
 
 namespace Common.messagebus
 {
-    public class TemperatureSensorTempUpdated : SiteCommand
+    public class TemperatureSensorTempUpdateCommand : SiteCommand
     {
         public readonly Guid SensorId;
 
         public readonly int Temperature;
-        public TemperatureSensorTempUpdated(Guid customerId, Guid sensorId, int temperature) : base(customerId)
+        public TemperatureSensorTempUpdateCommand(Guid customerId, Guid sensorId, int temperature) : base(customerId)
         {
             
             SensorId = sensorId;

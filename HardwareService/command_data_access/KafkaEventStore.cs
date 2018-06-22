@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using Common;
@@ -7,7 +8,9 @@ using Common.messagebus;
 using Confluent.Kafka;
 using Confluent.Kafka.Serialization;
 using HardwareService.domain;
+using HardwareService.domain.events;
 using MassTransit;
+using MassTransit.Logging;
 using Newtonsoft.Json;
 
 
@@ -16,9 +19,9 @@ namespace HardwareService.command_data_access
     public class KafkaEventStore : IEventStore
     {
         private static Producer _kafkaproducer;
-        private string topicName = "Sensors_Events";
+        //private string topicName = "Sensors_Events";
         private Dictionary<string, object>  _config;
-        IBus _bus;
+        IBus _messageBus;
 
 
         public bool IsReady { get; internal set; }
@@ -32,7 +35,7 @@ namespace HardwareService.command_data_access
         {          
 
             _config = new Dictionary<string, object> {
-                { "bootstrap.servers", "PLAINTEXT://10.185.20.152:9092" },
+                { "bootstrap.servers", "PLAINTEXT://10.185.20.197:9092" },
                 { "group.id", "foo" },
                 {"client.id", "HardwareService"}
                 };
@@ -48,6 +51,7 @@ namespace HardwareService.command_data_access
             {
                 var bytes = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(eventToPublish));
 
+                var topicName = eventToPublish.EventType.ToString();
                 var deliveryReport = _kafkaproducer.ProduceAsync(topicName, null, bytes);
             }
             
@@ -89,7 +93,7 @@ namespace HardwareService.command_data_access
 
         public void StartEventListener(IBus bus)
         {
-            _bus = bus;
+            _messageBus = bus;
             using (var consumer = new Consumer<Null, string>(_config, null, new StringDeserializer(Encoding.UTF8)))
             {
                 bool cancelled = false;
@@ -102,18 +106,24 @@ namespace HardwareService.command_data_access
                     //    routingKey: "hello",
                     //    basicProperties: null,
                     //    body: binaryevent);
-                    var endp = _bus.GetSendEndpoint(new Uri("rabbitmq://localhost/SensorCommands")).Result;
+                    var endp = _messageBus.GetSendEndpoint(new Uri("rabbitmq://localhost/SensorCommands")).Result;
 
-                    endp.Send<TemperatureSensorCreated>(new
+                    // Event ev = null; JsonConvert.DeserializeObject<Event>(msg.Value);
+
+
+                    if (msg.Topic == typeof(TemperatureSensorCreated).ToString())
                     {
-                        SensorId = "-----",
-                        CustomerId = new Guid(),
-                        Name = "--->>==="
-                    });
-
+                        var ev = JsonConvert.DeserializeObject<TemperatureSensorCreated>(msg.Value);
+                        endp.Send(ev);
+                    }
+                    else if (msg.Topic == typeof(TemperatureSensorTempUpdated).ToString())
+                    {
+                        var ev = JsonConvert.DeserializeObject<TemperatureSensorTempUpdated>(msg.Value);
+                        endp.Send(ev);
+                    }
                 };
-
-                consumer.OnPartitionEOF += (sender, offset) =>
+                   
+                    consumer.OnPartitionEOF += (sender, offset) =>
                 {
                     IsReady = true;
                 };
@@ -133,7 +143,10 @@ namespace HardwareService.command_data_access
                 };
 
 
-                consumer.Subscribe(topicName);
+                consumer.Subscribe(new List<string>{
+                    typeof(TemperatureSensorCreated).ToString(),
+                    typeof(TemperatureSensorTempUpdated).ToString()
+                });
 
                 while (!cancelled)
                 {
