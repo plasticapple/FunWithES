@@ -43,5 +43,19 @@ namespace HardwareService.domain.consumers
 
             return Task.CompletedTask;
         }
+
+        public Task Consume(ConsumeContext<UpdateSensorDetailCommand> context)
+        {
+            var entity = _repository.GetById(context.Message.SensorId);
+
+            if (entity != null)
+                _repository.Save(entity, entity.Version + 1);
+            else
+            {
+                throw new Exception("oh my gooood");
+            }
+
+            return Task.CompletedTask;
+        }
     }
 }

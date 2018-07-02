@@ -12,6 +12,7 @@ using HardwareService.domain.query_model;
 using MassTransit;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
 using RabbitMQ.Client;
 
 namespace HardwareService.Controllers
@@ -37,66 +38,37 @@ namespace HardwareService.Controllers
 
         // GET api/values
         [HttpGet]
-        public async Task<IEnumerable<string>> Get()
+        public string Get()
         {
-
-            ////TEST
-
-            var addUserEndpoint = await _bus.GetSendEndpoint(new Uri("rabbitmq://localhost/SensorCommands"));
-
-            //await addUserEndpoint.Send<CreateSensorCommand>(new
-            //{
-            //    SensorId = Guid.NewGuid(),
-            //    CustomerId = Guid.NewGuid(),
-            //    Name = "pretty name for sensor:"
-            //});
-
-            ////End Of Test
 
             if (!_store.IsReady)
             {
                 _logger.LogWarning("store is not yet ready");
-                return new List<string>(){"not ready"};                
+                return  "not ready";
             }
 
-            return _readmodel.GetTempSensorItems().Select(a => "name: " + a.SensorId + " temp:" + a.Temperature);
+            return JsonConvert.SerializeObject(_readmodel.GetTempSensorItems());          
         }
 
         // GET api/values/5
         [HttpGet("{id}")]
-        public string Get(string id)
+        public string Get(Guid id)
         {
-            return "value";
-        }
-
-        // POST api/values
-        [HttpPost]
-        [Route("add")]
-        public HttpResponseMessage Post(string sensorName)
-        {
-            //var sendOptions = new SendOptions();
-            //sendOptions.SetDestination("HardwareServiceEP");
-
-            //var customerId = Guid.NewGuid();
-            //string sensorid = "123456";
-            //string name = "pretty name for sensor:" + sensorid;
-
-            //var command = new CreateSensorCommand(customerId, sensorid, name);
-
-            //endpoint.Send(command, sendOptions).ConfigureAwait(false);
-
-            return new HttpResponseMessage(HttpStatusCode.Accepted);
-        }
+            return JsonConvert.SerializeObject(_readmodel.GetTempSensorDetails(id));
+        }      
 
         // PUT api/values/5
         [HttpPut("{id}")]
-        public void Put(int id, [FromBody]string value)
+        public async void Put(Guid id, [FromBody]string name)
         {
+            var addUserEndpoint = await _bus.GetSendEndpoint(new Uri("rabbitmq://localhost/SensorCommands"));
+            
+            await addUserEndpoint.Send(new UpdateSensorDetailCommand(id, name));
         }
 
         // DELETE api/values/5
         [HttpDelete("{id}")]
-        public void Delete(int id)
+        public void Delete(Guid id)
         {
         }
     }

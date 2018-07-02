@@ -58,9 +58,8 @@ namespace HardwareService
             builder.RegisterModule<BusModule>();
             builder.RegisterModule<ConsumerModule>();
 
-            builder.RegisterModule<ConsumerModule>();
-
-            builder.RegisterType<TempSensorsController>().PropertiesAutowired();                       
+            builder.RegisterType<TempSensorsController>().PropertiesAutowired();
+            builder.RegisterType<MockController>().PropertiesAutowired();
 
             services.AddMvc().AddControllersAsServices();
            

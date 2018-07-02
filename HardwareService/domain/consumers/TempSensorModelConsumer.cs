@@ -25,11 +25,11 @@ namespace HardwareService.domain.consumers
             //CQRS -Query
 
             //App state
-            ConnectionMultiplexer redis = ConnectionMultiplexer.Connect("localhost");
+            ConnectionMultiplexer redis = ConnectionMultiplexer.Connect("localhost:6379");
             IDatabase db = redis.GetDatabase();
 
             var json = JsonConvert.SerializeObject(dto);
-            db.StringSet(context.Message.SensorId.ToString(), json);
+            db.StringSet($"{typeof(TempSensorDto).Name}:{context.Message.SensorId}", json);
             //App state
 
             return Task.CompletedTask;
@@ -46,7 +46,7 @@ namespace HardwareService.domain.consumers
             ConnectionMultiplexer redis = ConnectionMultiplexer.Connect("localhost");
             IDatabase db = redis.GetDatabase();
 
-            var redisValue = db.StringGet(context.Message.SensorId.ToString());
+            var redisValue = db.StringGet($"{typeof(TempSensorDto).Name}:{context.Message.SensorId}");
             //CQRS -Query
 
             //App state

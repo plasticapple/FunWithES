@@ -8,6 +8,7 @@ namespace HardwareService.domain.query_model
     interface IReadModelFacade
     {
         IEnumerable<TempSensorDto> GetTempSensorItems();
-        TempSensorDto GetTempSensorDetails(Guid id);       
+        TempSensorDto GetTempSensorDetails(Guid id);
+        IList<Tuple<DateTime,int>> GetTempSensorHistory(Guid id);
     }
 }

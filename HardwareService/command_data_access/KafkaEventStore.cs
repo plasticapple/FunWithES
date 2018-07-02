@@ -98,18 +98,8 @@ namespace HardwareService.command_data_access
             {
                 bool cancelled = false;
                 consumer.OnMessage += (_, msg) =>
-                {
-                    //var binaryevent = HelperMethods.SerialiseIntoBinary(new TemperatureSensorCreated(Guid.NewGuid(), "1234", "nicename"));
-
-                    //endpoint.SendLocal(ev).ConfigureAwait(false);
-                    //channel.BasicPublish(exchange: "",
-                    //    routingKey: "hello",
-                    //    basicProperties: null,
-                    //    body: binaryevent);
-                    var endp = _messageBus.GetSendEndpoint(new Uri("rabbitmq://localhost/SensorCommands")).Result;
-
-                    // Event ev = null; JsonConvert.DeserializeObject<Event>(msg.Value);
-
+                {                
+                    var endp = _messageBus.GetSendEndpoint(new Uri("rabbitmq://localhost/SensorCommands")).Result;                    
 
                     if (msg.Topic == typeof(TemperatureSensorCreated).ToString())
                     {
