@@ -7,7 +7,7 @@ namespace Common.messagebus
         public readonly Guid SensorId;
         public readonly string Name;
 
-        public UpdateSensorDetailCommand(Guid sensorId, string name) //: base(customerId)
+        public UpdateSensorDetailCommand(Guid customerId, Guid sensorId, string name) //: base(customerId)
         {
             SensorId = sensorId;
             Name = name;

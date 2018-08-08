@@ -8,12 +8,14 @@ namespace HardwareService.domain
 {
     public class Event
     {
+        public  Guid Id;
         public Type EventType;
         public int Version;
 
-        public Event()
+        public Event(Guid id)
         {
             EventType = this.GetType();
+            Id = id;
         }
     }
 }

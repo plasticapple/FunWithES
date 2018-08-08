@@ -17,13 +17,18 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-
+using Microsoft.Extensions.Logging.AzureAppServices.Internal;
 using RabbitMQ.Client;
 using Module = Autofac.Module;
 
 
 namespace HardwareService
 {
+    public class BusControlEvents {}
+    public class BusControlCommand { }
+
+
+
     public class Startup
     {
         //private IContainer _container;
@@ -42,18 +47,24 @@ namespace HardwareService
         // This method gets called by the runtime. Use this method to add services to the container.
         public IServiceProvider ConfigureServices(IServiceCollection services)
         {
-            var builder = new ContainerBuilder();           
+            var builder = new ContainerBuilder();
+            
 
             IEventStore eventstore = new KafkaEventStore();
 
             builder.RegisterInstance(eventstore).As<IEventStore>();
 
-            builder.RegisterInstance(new SensorsRepository(eventstore));
+            builder.Register(a =>
+            {
+                var logger = a.Resolve<ILoggerFactory>();
+                return new SensorsRepository(eventstore,logger.CreateLogger("LoggerForSensorRepo"));
+            });
 
-            var factory = new ConnectionFactory() { HostName = "localhost" };
-            var connection = factory.CreateConnection();
+          //  var factory = new ConnectionFactory() { HostName = "localhost" };
+            //var connection = factory.CreateConnection();
 
-            builder.RegisterInstance(new BusSettings{HostAddress = "localhost",Username = "guest", Password = "guest",QueueName = "SensorCommands"});
+            builder.RegisterInstance(new BusSettings{HostAddress = "localhost",Username = "guest", Password = "guest",QueueName = "SensorEvents"}).Named<BusSettings>("Events");
+            builder.RegisterInstance(new BusSettings { HostAddress = "localhost", Username = "guest", Password = "guest", QueueName = "SensorCommands" }).Named<BusSettings>("Commands");
 
             builder.RegisterModule<BusModule>();
             builder.RegisterModule<ConsumerModule>();
@@ -66,14 +77,10 @@ namespace HardwareService
             builder.Populate(services);
             var container = builder.Build();
 
-            var bc = container.Resolve<IBusControl>();           
-            bc.Start();
+            //var bc = container.Resolve<IBusControl>();           
+            //bc.Start();
 
-            var bus = container.Resolve<IBus>();
-          
-            var eschannel = connection.CreateModel();
-
-            Task.Factory.StartNew(() => eventstore.StartEventListener(bus));
+            Task.Factory.StartNew(() => eventstore.StartEventListener(container));
 
             return new AutofacServiceProvider(container);
 
@@ -92,26 +99,63 @@ namespace HardwareService
         {
             protected override void Load(ContainerBuilder builder)
             {
+                builder.RegisterType<IBusControl>()
+                    .Named<IBusControl>("handler");
+                builder.RegisterType<IBusControl>()
+                    .Named<IBusControl>("handler");
+
+                
+               
                 builder.Register(context =>
                     {
-                        var busSettings = context.Resolve<BusSettings>();
+                        var busSettings = context.ResolveNamed<BusSettings>("Events");
+                        var sensorRepo = context.Resolve<SensorsRepository>();
+                        var loggerFactory = context.Resolve<ILoggerFactory>();
 
                         var busControl = Bus.Factory.CreateUsingRabbitMq(cfg =>
                         {
-                            var host = cfg.Host(busSettings.HostAddress, "/",  h =>
+                            var host = cfg.Host(busSettings.HostAddress, "/", h =>
                             {
                                 h.Username(busSettings.Username);
                                 h.Password(busSettings.Password);
                             });
 
-                            cfg.ReceiveEndpoint(busSettings.QueueName, ec => { ec.LoadFrom(context); });
+                            //cfg.ReceiveEndpoint(busSettings.QueueName, ec => { ec.LoadFrom(context); });
+                            cfg.ReceiveEndpoint(busSettings.QueueName, e =>
+                            {
+                                e.Consumer(() => new SensorEventConsumers(sensorRepo, loggerFactory.CreateLogger("SensorEventConsumerLogger")));
+                            });
                         });
                         return busControl;
                     })
                     .As<IBusControl>()
                     .As<IBus>()
-                   .As<IPublishEndpoint>()
-                    .SingleInstance();
+                   .As<IPublishEndpoint>().SingleInstance().Named<IBusControl>("Events");
+
+                builder.Register(context =>
+                    {
+                        var busSettings = context.ResolveNamed<BusSettings>("Commands");
+                        var sensorRepo = context.Resolve<SensorsRepository>();
+                        var loggerFactory = context.Resolve<ILoggerFactory>();
+
+                        var busControl = Bus.Factory.CreateUsingRabbitMq(cfg =>
+                        {
+                            var host = cfg.Host(busSettings.HostAddress, "/", h =>
+                            {
+                                h.Username(busSettings.Username);
+                                h.Password(busSettings.Password);
+                            });
+
+                            cfg.ReceiveEndpoint(busSettings.QueueName,e=>
+                            {
+                                e.Consumer(()=>new SensorCommandsConsumer(sensorRepo, loggerFactory.CreateLogger("CommandConsumerLogger")));
+                            });
+                        });
+                        return busControl;
+                    })
+                    .As<IBusControl>()
+                    .As<IBus>()
+                    .As<IPublishEndpoint>().SingleInstance().Named<IBusControl>("Commands");
             }
         }
 
@@ -119,8 +163,8 @@ namespace HardwareService
         {
             protected override void Load(ContainerBuilder builder)
             {
-                builder.RegisterType<SensorCommandsConsumer>();
-                builder.RegisterType<SensorModelConsumer>();
+               // builder.RegisterType<SensorCommandsConsumer>();
+                builder.RegisterType<SensorEventConsumers>();
                 //builder.RegisterType<SqlCustomerRegistry>()
                 //    .As<ICustomerRegistry>();
             }

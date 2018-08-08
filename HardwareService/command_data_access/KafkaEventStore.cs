@@ -3,11 +3,14 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Text;
+using System.Threading;
+using Autofac;
 using Common;
 using Common.messagebus;
 using Confluent.Kafka;
 using Confluent.Kafka.Serialization;
 using HardwareService.domain;
+using HardwareService.domain.consumers;
 using HardwareService.domain.events;
 using MassTransit;
 using MassTransit.Logging;
@@ -16,12 +19,11 @@ using Newtonsoft.Json;
 
 namespace HardwareService.command_data_access
 {
-    public class KafkaEventStore : IEventStore
+    public partial class KafkaEventStore : IEventStore
     {
         private static Producer _kafkaproducer;
         //private string topicName = "Sensors_Events";
-        private Dictionary<string, object>  _config;
-        IBus _messageBus;
+        private Dictionary<string, object>  _config;       
 
 
         public bool IsReady { get; internal set; }
@@ -53,68 +55,50 @@ namespace HardwareService.command_data_access
 
                 var topicName = eventToPublish.EventType.ToString();
                 var deliveryReport = _kafkaproducer.ProduceAsync(topicName, null, bytes);
+                if(deliveryReport.IsFaulted)
+                    throw new Exception("faulted");
             }
             
         }
-
-        private void GetKStream()
-        {
-            //var builder = new KStream();
-            //builder.stream(keySerde, valueSerde, "my_entity_events")
-            //    .groupByKey(keySerde, valueSerde)
-            //    // the folding function: should return the new state
-            //    .reduce((currentState, event) -> ..., "my_entity_store");
-            //.toStream(); // yields a stream of intermediate states
-           // return builder;
-        }
-
-        public List<Event> GetEventsForAggregate(Guid aggregateId)
-        {
-            //List<EventDescriptor> eventDescriptors;
-
-            //if (!_current.TryGetValue(aggregateId, out eventDescriptors))
-            //{
-            //    throw new AggregateNotFoundException();
-            //}
-
-            //return eventDescriptors.Select(desc => desc.EventData).ToList();
-
-            //streams
-            //    .store("my_entity_store", QueryableStoreTypes.keyValueStore());
-            //    .get(entityId);
-            using(var consumer = new Consumer<Null, string>(_config, null, new StringDeserializer(Encoding.UTF8)))
-            {
-               //consumer.
-            }
-
-            return new List<Event>(){new Event(){Version = 1},new Event(){Version = 2}};
-        }
        
-
-        public void StartEventListener(IBus bus)
+        public void StartEventListener(IContainer container)
         {
-            _messageBus = bus;
+            var busconnectionEvents = container.ResolveNamed<IBusControl>("Events");
+            var busconnectionCommands = container.ResolveNamed<IBusControl>("Commands");
+
+            busconnectionEvents.Start();
+
             using (var consumer = new Consumer<Null, string>(_config, null, new StringDeserializer(Encoding.UTF8)))
             {
+                
                 bool cancelled = false;
                 consumer.OnMessage += (_, msg) =>
                 {                
-                    var endp = _messageBus.GetSendEndpoint(new Uri("rabbitmq://localhost/SensorCommands")).Result;                    
+                    var endp = busconnectionEvents.GetSendEndpoint(new Uri("rabbitmq://localhost/SensorEvents")).Result;
 
-                    if (msg.Topic == typeof(TemperatureSensorCreated).ToString())
-                    {
-                        var ev = JsonConvert.DeserializeObject<TemperatureSensorCreated>(msg.Value);
+                    var topicType = KafkaTopics.FirstOrDefault(a => a.ToString() == msg.Topic);
+                    if (topicType == default(Type))
+                        throw new Exception("Something went wrong here");
+                    
+                    var ev = JsonConvert.DeserializeObject(msg.Value,topicType);
+                        
+                    //prevent poisonous events Id cannot be default guid!
+                    var @event = ev as Event;
+                    if (@event != null && @event.Id != Guid.Empty)
                         endp.Send(ev);
-                    }
-                    else if (msg.Topic == typeof(TemperatureSensorTempUpdated).ToString())
-                    {
-                        var ev = JsonConvert.DeserializeObject<TemperatureSensorTempUpdated>(msg.Value);
-                        endp.Send(ev);
-                    }
+                              
                 };
-                   
-                    consumer.OnPartitionEOF += (sender, offset) =>
-                {
+
+                var starting = false;
+                consumer.OnPartitionEOF += async (sender, offset) =>
+                {                 
+                    if (starting) return;
+
+                    starting = true;
+
+                    var handle = await busconnectionCommands.StartAsync();
+                    await handle.Ready;
+                    //ITS NOT READY DAMN IT
                     IsReady = true;
                 };
 
@@ -132,11 +116,8 @@ namespace HardwareService.command_data_access
                     consumer.Assign(fromBeginning);
                 };
 
-
-                consumer.Subscribe(new List<string>{
-                    typeof(TemperatureSensorCreated).ToString(),
-                    typeof(TemperatureSensorTempUpdated).ToString()
-                });
+                
+                consumer.Subscribe(KafkaTopics.Select(a=>a.ToString()));
 
                 while (!cancelled)
                 {

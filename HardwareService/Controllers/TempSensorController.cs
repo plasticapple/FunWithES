@@ -20,14 +20,14 @@ namespace HardwareService.Controllers
     [Route("api/[controller]")]
     public class TempSensorsController : Controller
     {
-        private readonly IBus _bus;
+        private readonly IBusControl _bus;
 
         private IEventStore _store;
 
         private IReadModelFacade _readmodel;
         private ILogger _logger;
 
-        public TempSensorsController(IBus bus, IEventStore store, ILogger<TempSensorsController> logger)
+        public TempSensorsController(IBusControl bus, IEventStore store, ILogger<TempSensorsController> logger)
         {
             _bus = bus;
             this._store = store;
@@ -57,13 +57,15 @@ namespace HardwareService.Controllers
             return JsonConvert.SerializeObject(_readmodel.GetTempSensorDetails(id));
         }      
 
-        // PUT api/values/5
-        [HttpPut("{id}")]
-        public async void Put(Guid id, [FromBody]string name)
+        
+        [HttpPatch("{id}")]
+        public async void Patch(Guid id, [FromBody]string name)
         {
             var addUserEndpoint = await _bus.GetSendEndpoint(new Uri("rabbitmq://localhost/SensorCommands"));
-            
-            await addUserEndpoint.Send(new UpdateSensorDetailCommand(id, name));
+
+
+            var newob = new UpdateSensorDetailCommand(new Guid(), id, name);
+            await addUserEndpoint.Send<UpdateSensorDetailCommand>(newob);
         }
 
         // DELETE api/values/5

@@ -2,14 +2,18 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using HardwareService.domain.events;
+using Newtonsoft.Json;
 
 namespace HardwareService.domain
 {
+    [JsonObject(MemberSerialization.OptIn)]
     public abstract class AggregateRoot
     {
         private readonly List<Event> _changes = new List<Event>();
 
-        public  Guid Id { get; }
+        [JsonProperty]
+        public Guid Id { get; protected set; }
         public int Version { get; internal set; }
 
         public IEnumerable<Event> GetUncommittedChanges()
@@ -17,26 +21,19 @@ namespace HardwareService.domain
             return _changes;
         }
 
+        public void AppendChange(Event @event)
+        {
+            _changes.Add(@event);
+        }
+
         public void MarkChangesAsCommitted()
         {
             _changes.Clear();
         }
-
-        public void LoadsFromHistory(IEnumerable<Event> history)
+     
+        public void ApplyEventFromHistory(Event @event)
         {
-            foreach (var e in history) ApplyChange(e, false);
-        }
-
-        protected void ApplyChange(Event @event)
-        {
-            ApplyChange(@event, true);
-        }
-
-        // push atomic aggregate changes to local history for further processing (EventStore.SaveEvents)
-        private void ApplyChange(Event @event, bool isNew)
-        {
-         //   this.Apply(@event);
-            if (isNew) _changes.Add(@event);
-        }
+            (this as dynamic).Apply(@event as dynamic);
+        }        
     }
 }

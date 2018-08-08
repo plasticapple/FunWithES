@@ -26,7 +26,7 @@ namespace HardwareService.Controllers
         private IReadModelFacade _readmodel;
         private ILogger _logger;
 
-        public MockController(IBus bus, IEventStore store, ILogger<TempSensorsController> logger)
+        public MockController(IBusControl bus, IEventStore store, ILogger<TempSensorsController> logger)
         {
             _bus = bus;
             this._store = store;
@@ -39,13 +39,12 @@ namespace HardwareService.Controllers
         [HttpGet]
         public async Task<string> Get()
         {
-
-            ////TEST
-
+          
             var addUserEndpoint = await _bus.GetSendEndpoint(new Uri("rabbitmq://localhost/SensorCommands"));
 
             var newOb = new
             {
+                //SensorId = new Guid("f34bb461-ad5c-47b5-a6c9-33fc904955d1"),
                 SensorId = Guid.NewGuid(),
                 CustomerId = Guid.NewGuid(),
                 Name = "pretty name for sensor2:"
@@ -54,6 +53,34 @@ namespace HardwareService.Controllers
             await addUserEndpoint.Send<CreateSensorCommand>(newOb);         
 
             return  $"added new sensor id: {newOb.SensorId} with name {newOb.Name}";
-        }     
+        }
+
+        // GET api/values
+        [HttpGet("{id}/{temp}")]
+        public async Task<string> Get(Guid id, int temp)
+        {
+            var addUserEndpoint = await _bus.GetSendEndpoint(new Uri("rabbitmq://localhost/SensorCommands"));
+
+            var newOb = new UpdateSensorTempCommand(new Guid(), id, temp);
+
+            await addUserEndpoint.Send(newOb);
+
+            return $"updated temp onsensor id: {newOb.SensorId} with temp {newOb.Temp}";
+
+        }
+
+        // GET api/values
+        [HttpGet("{id}/{temp}")]
+        public async Task<string> Get(Guid id, string name)
+        {
+            var addUserEndpoint = await _bus.GetSendEndpoint(new Uri("rabbitmq://localhost/SensorCommands"));
+
+            var newOb = new UpdateSensorDetailCommand(new Guid(), id, name);
+
+            await addUserEndpoint.Send(newOb);
+
+            return $"updated name onsensor id: {newOb.SensorId} with name {name}";
+
+        }
     }
 }
