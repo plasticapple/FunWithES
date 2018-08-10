@@ -23,18 +23,14 @@ namespace HardwareService.command_data_access
     {
         private static Producer _kafkaproducer;
         //private string topicName = "Sensors_Events";
-        private Dictionary<string, object>  _config;       
-
+        private Dictionary<string, object>  _config;
+        private Microsoft.Extensions.Logging.ILogger _logger;
 
         public bool IsReady { get; internal set; }
 
-        //private void Subscribe()
-        //{           
-                   
-        //}
-
-        public KafkaEventStore()
-        {          
+        public KafkaEventStore(Microsoft.Extensions.Logging.ILogger logger)
+        {
+            _logger = logger;
 
             _config = new Dictionary<string, object> {
                 { "bootstrap.servers", "PLAINTEXT://10.185.20.197:9092" },
@@ -63,18 +59,26 @@ namespace HardwareService.command_data_access
        
         public void StartEventListener(IContainer container)
         {
-            var busconnectionEvents = container.ResolveNamed<IBusControl>("Events");
+            //var busconnectionEvents = container.ResolveNamed<IBusControl>("Events");
+            var eventProcessor = container.Resolve<SensorEventProcessor>();
+
             var busconnectionCommands = container.ResolveNamed<IBusControl>("Commands");
 
-            busconnectionEvents.Start();
+            ManualResetEvent manualResetEvent = new ManualResetEvent(true);
+
+            //busconnectionEvents.Start();
 
             using (var consumer = new Consumer<Null, string>(_config, null, new StringDeserializer(Encoding.UTF8)))
             {
                 
                 bool cancelled = false;
+
+                // SensorEventConsumers handlers = new SensorEventConsumers(_logger);
+
                 consumer.OnMessage += (_, msg) =>
-                {                
-                    var endp = busconnectionEvents.GetSendEndpoint(new Uri("rabbitmq://localhost/SensorEvents")).Result;
+                {
+                    manualResetEvent.Reset();
+                    //var endp = busconnectionEvents.GetSendEndpoint(new Uri("rabbitmq://localhost/SensorEvents")).Result;
 
                     var topicType = KafkaTopics.FirstOrDefault(a => a.ToString() == msg.Topic);
                     if (topicType == default(Type))
@@ -85,8 +89,14 @@ namespace HardwareService.command_data_access
                     //prevent poisonous events Id cannot be default guid!
                     var @event = ev as Event;
                     if (@event != null && @event.Id != Guid.Empty)
-                        endp.Send(ev);
-                              
+                    {                       
+                        eventProcessor.Process((dynamic) @event);
+                        // endp.Send(ev);
+                        //handlers.Consume(ev);
+                    }
+
+                    manualResetEvent.Set();
+
                 };
 
                 var starting = false;
@@ -121,6 +131,7 @@ namespace HardwareService.command_data_access
 
                 while (!cancelled)
                 {
+                    manualResetEvent.WaitOne();
                     consumer.Poll(TimeSpan.FromSeconds(1));
                 }
             }

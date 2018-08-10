@@ -48,26 +48,35 @@ namespace HardwareService
         public IServiceProvider ConfigureServices(IServiceCollection services)
         {
             var builder = new ContainerBuilder();
-            
 
-            IEventStore eventstore = new KafkaEventStore();
 
-            builder.RegisterInstance(eventstore).As<IEventStore>();
+
 
             builder.Register(a =>
             {
                 var logger = a.Resolve<ILoggerFactory>();
-                return new SensorsRepository(eventstore,logger.CreateLogger("LoggerForSensorRepo"));
-            });
+                return new KafkaEventStore(logger.CreateLogger("LoggerForSensorRepo"));
 
-          //  var factory = new ConnectionFactory() { HostName = "localhost" };
-            //var connection = factory.CreateConnection();
+            }).As<IEventStore>().SingleInstance();
+
+            builder.Register(a =>
+            {
+                var logger = a.Resolve<ILoggerFactory>();
+                var eventStore = a.Resolve<IEventStore>();
+                return new SensorsRepository(logger.CreateLogger("LoggerForSensorRepo"),eventStore);
+            }).SingleInstance();
+
+            
+       
+           
+
+           
 
             builder.RegisterInstance(new BusSettings{HostAddress = "localhost",Username = "guest", Password = "guest",QueueName = "SensorEvents"}).Named<BusSettings>("Events");
             builder.RegisterInstance(new BusSettings { HostAddress = "localhost", Username = "guest", Password = "guest", QueueName = "SensorCommands" }).Named<BusSettings>("Commands");
 
             builder.RegisterModule<BusModule>();
-            builder.RegisterModule<ConsumerModule>();
+            builder.RegisterModule<EventProcessorsModule>();
 
             builder.RegisterType<TempSensorsController>().PropertiesAutowired();
             builder.RegisterType<MockController>().PropertiesAutowired();
@@ -80,7 +89,7 @@ namespace HardwareService
             //var bc = container.Resolve<IBusControl>();           
             //bc.Start();
 
-            Task.Factory.StartNew(() => eventstore.StartEventListener(container));
+            Task.Factory.StartNew(() => container.Resolve<IEventStore>().StartEventListener(container));
 
             return new AutofacServiceProvider(container);
 
@@ -104,33 +113,33 @@ namespace HardwareService
                 builder.RegisterType<IBusControl>()
                     .Named<IBusControl>("handler");
 
-                
-               
-                builder.Register(context =>
-                    {
-                        var busSettings = context.ResolveNamed<BusSettings>("Events");
-                        var sensorRepo = context.Resolve<SensorsRepository>();
-                        var loggerFactory = context.Resolve<ILoggerFactory>();
 
-                        var busControl = Bus.Factory.CreateUsingRabbitMq(cfg =>
-                        {
-                            var host = cfg.Host(busSettings.HostAddress, "/", h =>
-                            {
-                                h.Username(busSettings.Username);
-                                h.Password(busSettings.Password);
-                            });
 
-                            //cfg.ReceiveEndpoint(busSettings.QueueName, ec => { ec.LoadFrom(context); });
-                            cfg.ReceiveEndpoint(busSettings.QueueName, e =>
-                            {
-                                e.Consumer(() => new SensorEventConsumers(sensorRepo, loggerFactory.CreateLogger("SensorEventConsumerLogger")));
-                            });
-                        });
-                        return busControl;
-                    })
-                    .As<IBusControl>()
-                    .As<IBus>()
-                   .As<IPublishEndpoint>().SingleInstance().Named<IBusControl>("Events");
+                //builder.Register(context =>
+                //    {
+                //        var busSettings = context.ResolveNamed<BusSettings>("Events");
+                //        var sensorRepo = context.Resolve<SensorsRepository>();
+                //        var loggerFactory = context.Resolve<ILoggerFactory>();
+
+                //        var busControl = Bus.Factory.CreateUsingRabbitMq(cfg =>
+                //        {
+                //            var host = cfg.Host(busSettings.HostAddress, "/", h =>
+                //            {
+                //                h.Username(busSettings.Username);
+                //                h.Password(busSettings.Password);
+                //            });
+
+                //            //cfg.ReceiveEndpoint(busSettings.QueueName, ec => { ec.LoadFrom(context); });
+                //            cfg.ReceiveEndpoint(busSettings.QueueName, e =>
+                //            {
+                //                e.Consumer(() => new SensorEventConsumers(sensorRepo, loggerFactory.CreateLogger("SensorEventConsumerLogger")));
+                //            });
+                //        });
+                //        return busControl;
+                //    })
+                //    .As<IBusControl>()
+                //    .As<IBus>()
+                //   .As<IPublishEndpoint>().SingleInstance().Named<IBusControl>("Events");
 
                 builder.Register(context =>
                     {
@@ -146,10 +155,10 @@ namespace HardwareService
                                 h.Password(busSettings.Password);
                             });
 
-                            cfg.ReceiveEndpoint(busSettings.QueueName,e=>
-                            {
-                                e.Consumer(()=>new SensorCommandsConsumer(sensorRepo, loggerFactory.CreateLogger("CommandConsumerLogger")));
-                            });
+                            cfg.ReceiveEndpoint(busSettings.QueueName, e =>
+                             {
+                                 e.Consumer(() => new SensorCommandsConsumer(sensorRepo, loggerFactory.CreateLogger("CommandConsumerLogger")));
+                             });
                         });
                         return busControl;
                     })
@@ -159,14 +168,11 @@ namespace HardwareService
             }
         }
 
-        class ConsumerModule :Module
+        class EventProcessorsModule :Module
         {
             protected override void Load(ContainerBuilder builder)
-            {
-               // builder.RegisterType<SensorCommandsConsumer>();
-                builder.RegisterType<SensorEventConsumers>();
-                //builder.RegisterType<SqlCustomerRegistry>()
-                //    .As<ICustomerRegistry>();
+            {               
+                builder.RegisterType<SensorEventProcessor>().SingleInstance();                
             }
         }
 

@@ -1,32 +1,23 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using GreenPipes.Filters;
-using HardwareService.command_data_access;
 using HardwareService.domain;
-using HardwareService.domain.model;
-using HardwareService.domain.query_model;
 using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
-using StackExchange.Redis;
 
-namespace HardwareService.data_access
+namespace HardwareService.command_data_access
 {
-    public class Repository<T> : IRepository<T> where T : AggregateRoot, new() //shortcut you can do as you see fit with new()
+    public class Repository<T> : IRepository<T> where T : AggregateRoot, new()
     {
-        private readonly IEventStore _storage;
+        private readonly IEventStore _eventStore;
         private readonly ILogger _logger;
 
-        public Repository(IEventStore storage,ILogger logger)
-        {
-            _storage = storage;
+        public Repository(ILogger logger, IEventStore eventStore)
+        {         
             _logger = logger;
+            _eventStore = eventStore;
         }
 
         public void Save(AggregateRoot aggregate, int expectedVersion)
         {
-            _storage.SaveEvents(aggregate.Id, aggregate.GetUncommittedChanges(), expectedVersion);
+            _eventStore.SaveEvents(aggregate.Id, aggregate.GetUncommittedChanges(), expectedVersion);
             aggregate.MarkChangesAsCommitted();
         }
 

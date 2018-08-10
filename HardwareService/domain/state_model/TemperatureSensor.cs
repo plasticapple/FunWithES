@@ -41,6 +41,12 @@ namespace HardwareService.domain.model
             Temperature = e.Temperature;
         }
 
+        public void Apply(TemperatureSensorDetailUpdated e)
+        {
+            Name = e.Name;
+        }
+
+
         #endregion  mutation of existing domain object
 
         public static TemperatureSensor SpawnFromState(TemperatureSensor state)
