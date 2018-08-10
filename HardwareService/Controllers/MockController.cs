@@ -44,15 +44,28 @@ namespace HardwareService.Controllers
 
             var newOb = new
             {
-                //SensorId = new Guid("f34bb461-ad5c-47b5-a6c9-33fc904955d1"),
-                SensorId = Guid.NewGuid(),
+                SensorId = new Guid("f34bb461-ad5c-47b5-a6c9-33fc904955d1"),
+                //SensorId = Guid.NewGuid(),
                 CustomerId = Guid.NewGuid(),
-                Name = "pretty name for sensor2:"
+                Name = "default mock sensor"
             };
 
-            await addUserEndpoint.Send<CreateSensorCommand>(newOb);         
+            await addUserEndpoint.Send<CreateSensorCommand>(newOb);
 
-            return  $"added new sensor id: {newOb.SensorId} with name {newOb.Name}";
+
+            var addUserEndpoint2 = await _bus.GetSendEndpoint(new Uri("rabbitmq://localhost/SensorCommands"));
+
+            var newOb2 = new
+            {
+                SensorId = new Guid("f34bb461-ad5c-47b5-a6c9-33fc904955d2"),
+                //SensorId = Guid.NewGuid(),
+                CustomerId = Guid.NewGuid(),
+                Name = "another default mock sensor"
+            };
+
+            await addUserEndpoint.Send<CreateSensorCommand>(newOb2);
+
+            return  $"added new sensor id: {newOb.SensorId} and {newOb2.SensorId} with name {newOb.Name} and {newOb2.Name}";
         }
 
         // GET api/values

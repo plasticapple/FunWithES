@@ -2,7 +2,7 @@
 
 namespace Common.messagebus
 {
-    public class SiteCommand : IMessage
+    public class SiteCommand : ICommand
     {
         public readonly Guid CustomerId;
 

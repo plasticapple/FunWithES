@@ -7,6 +7,8 @@
 
   <ItemGroup>
     <PackageReference Include="Confluent.Kafka" Version="0.11.3" />
+    <PackageReference Include="MassTransit.Autofac" Version="5.1.4" />
+    <PackageReference Include="MassTransit.RabbitMQ" Version="5.1.4" />
     <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="2.0.1" />
     <PackageReference Include="Newtonsoft.Json" Version="11.0.2" />
     <PackageReference Include="NServiceBus" Version="7.0.0-rc0002" />
@@ -23,6 +25,9 @@
     </Reference>
     <Reference Include="M2Mqtt.Net">
       <HintPath>..\..\..\Users\grozenfeld\.nuget\packages\m2mqtt\4.3.0\lib\net45\M2Mqtt.Net.dll</HintPath>
+    </Reference>
+    <Reference Include="MassTransit">
+      <HintPath>..\..\..\Users\grozenfeld\.nuget\packages\masstransit\5.1.2\lib\netstandard2.0\MassTransit.dll</HintPath>
     </Reference>
     <Reference Include="RabbitMQ.Client">
       <HintPath>..\..\..\Users\grozenfeld\.nuget\packages\rabbitmq.client\5.0.1\lib\netstandard1.5\RabbitMQ.Client.dll</HintPath>

@@ -21,7 +21,7 @@ namespace HardwareService.domain.model
         public Guid CustomerId { get; internal set; }
 
         [JsonProperty]
-        public int Temperature { get; internal set; }
+        public float Temperature { get; internal set; }
       
         public TemperatureSensor()
         {
@@ -81,7 +81,7 @@ namespace HardwareService.domain.model
         }
 
 
-        public void UpdateTemperature(int temp)
+        public void UpdateTemperature(float temp)
         {
             AppendChange(new TemperatureSensorTempUpdated(CustomerId, Id){Temperature = temp});
         }

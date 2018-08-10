@@ -18,7 +18,7 @@ namespace HardwareService.domain.events
     {
         public readonly Guid CustomerId;
         
-        public int Temperature { get; set; }
+        public float Temperature { get; set; }
 
         public TemperatureSensorTempUpdated(Guid customerId, Guid sensorId) : base(sensorId)
         {

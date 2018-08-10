@@ -22,51 +22,66 @@ namespace HardwareService.domain.consumers
 
 
         public Task Consume(ConsumeContext<CreateSensorCommand> context)
-        {           
+        {
+            _logger.LogInformation($"Received Command {context.Message.GetType()}");
             var entity = _repository.GetById(context.Message.SensorId);
 
             if (entity != null)
-                throw new Exception($"Exists! {context.Message.SensorId}");
+            {
+                var error = $"Sensor with id: {context.Message.SensorId} already exists";
+                _logger.LogError(error);
+                _logger.LogInformation($"Finished processing Command {context.Message.GetType()}");
+                return Task.CompletedTask;
+            }
+              
 
             var item = TemperatureSensor.CreateNew(context.Message.CustomerId, context.Message.SensorId, context.Message.Name);
 
              _repository.Save(item, -1);
 
+            _logger.LogInformation($"Finished processing Command {context.Message.GetType()}");
             return Task.CompletedTask;
         }
 
 
         public Task Consume(ConsumeContext<UpdateSensorTempCommand> context)
         {
+            _logger.LogInformation($"Received Command {context.Message.GetType()}");
             var entity = _repository.GetById(context.Message.SensorId);
 
             if (entity == null)
             {
-                _logger.LogError("Requested update on non existing sensor");
-                throw new ValidationException("Requested update on non existing sensor");
+                var error = $"Requested update on non existing sensor id: {context.Message.SensorId}";
+                _logger.LogError(error);
+                _logger.LogInformation($"Finished processing Command {context.Message.GetType()}");
+                return Task.CompletedTask;
             }
 
             entity.UpdateTemperature(context.Message.Temp);
 
             _repository.Save(entity, entity.Version + 1);
-           
+            _logger.LogInformation($"Finished processing Command {context.Message.GetType()}");
             return Task.CompletedTask;
         }
 
         public Task Consume(ConsumeContext<UpdateSensorDetailCommand> context)
         {
+            _logger.LogInformation($"Received Command {context.Message.GetType()}");
             var entity = _repository.GetById(context.Message.SensorId);
             
             if (entity == null)
-            {              
-                _logger.LogError("Requested update on non existing sensor");
-                throw new ValidationException("Requested update on non existing sensor");                
+            {
+                var error = $"Requested update on non existing sensor id: {context.Message.SensorId}";
+                _logger.LogError(error);
+                _logger.LogInformation($"Finished processing Command {context.Message.GetType()}");
+                return Task.CompletedTask;
             }
 
             entity.UpdateDetails(context.Message.Name);
 
             _repository.Save(entity, entity.Version + 1);
-          
+
+            _logger.LogInformation($"Finished processing Command {context.Message.GetType()}");
             return Task.CompletedTask;
         }
     }

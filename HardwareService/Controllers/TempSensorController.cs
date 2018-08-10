@@ -1,19 +1,11 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Net;
-using System.Net.Http;
-using System.Threading.Tasks;
-using Common;
 using Common.messagebus;
-using HardwareService;
 using HardwareService.command_data_access;
 using HardwareService.domain.query_model;
 using MassTransit;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
-using RabbitMQ.Client;
 
 namespace HardwareService.Controllers
 {

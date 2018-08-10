@@ -1,19 +1,12 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Common;
 using Common.messagebus;
-using Confluent.Kafka;
+using MassTransit;
+using Newtonsoft.Json;
 using uPLibrary.Networking.M2Mqtt;
 using uPLibrary.Networking.M2Mqtt.Messages;
 
-using Confluent.Kafka.Serialization;
-using Newtonsoft.Json;
-using RabbitMQ.Client;
-
-namespace HardwareService
+namespace RaspberryDriver
 {
     public class SensorMessage
     {
@@ -41,7 +34,7 @@ namespace HardwareService
     {
         //private static Producer _kafkaproducer;
         private MqttClient _client;
-        private IModel _channel;
+        private  IBusControl _bus;
 
         public void Start()
         {
@@ -50,25 +43,22 @@ namespace HardwareService
         }
 
         private void SetupBus()
-        {           
-           // var endpointConfiguration = new EndpointConfiguration("RaspberryDriverEP");
-           // var transport = endpointConfiguration.UseTransport<LearningTransport>();
-           //transport.StorageDirectory(@"c:\nbustemp");
+        {
+            _bus = Bus.Factory.CreateUsingRabbitMq(cfg =>
+            {
+                var busSettings = new BusSettings { HostAddress = "localhost", Username = "guest", Password = "guest", QueueName = "SensorCommands" };
 
-           // endpointConfiguration.UsePersistence<LearningPersistence>();
+                var host = cfg.Host(busSettings.HostAddress, "/", h =>
+                {
+                    h.Username(busSettings.Username);
+                    h.Password(busSettings.Password);
+                });
 
-           // endpointConfiguration.SendFailedMessagesTo("error");
-
-           // // Use XML to serialize and deserialize messages (which are just
-           // // plain classes) to and from message queues
-           // endpointConfiguration.UseSerialization<XmlSerializer>();
-
-           // // Ask NServiceBus to automatically create message queues
-           // endpointConfiguration.EnableInstallers();
-
-           // //var routing = transport.Routing();
-
-           // _endpoint = Endpoint.Start(endpointConfiguration).GetAwaiter().GetResult();
+                //cfg.ReceiveEndpoint(busSettings.QueueName, e =>
+                //{
+                //    e.Consumer(() => new SensorCommandsConsumer(sensorRepo, loggerFactory.CreateLogger("CommandConsumerLogger")));
+                //});
+            });
         }
 
         public void Subscribe()
@@ -124,38 +114,18 @@ namespace HardwareService
             var time = new DateTime(1970, 1, 1, 0, 0, 0, 0, System.DateTimeKind.Utc);
             
             time = time.AddMilliseconds(message.Time);
+         
+            var addUserEndpoint = _bus.GetSendEndpoint(new Uri("rabbitmq://localhost/SensorCommands")).Result;
 
-            var binarycommand = HelperMethods.SerialiseIntoBinary(new UpdateSensorTempCommand(new Guid(), new Guid(),20));
-            
-            _channel.BasicPublish(exchange: "",
-                routingKey: "hello",
-                basicProperties: null,
-                body: binarycommand);
+            //TODO: need to find out real id of the sensor 
 
-            Console.WriteLine($"Sent a UpdateSensorTempCommand");
+            var command = new UpdateSensorTempCommand(new Guid(),
+                message.Name == "28-0000097100be" ? new Guid("f34bb461-ad5c-47b5-a6c9-33fc904955d1") : new Guid("f34bb461-ad5c-47b5-a6c9-33fc904955d2"),
+                message.Temperature);
 
-            /// 
-            /// What Should it be pushing through kafka or MESSAGE BUS oooooohhhhh....
-            /// 
+            addUserEndpoint.Send(command);
 
-            //var eventToPublish = new TemperatureChangedEvent()
-            //{
-            //    AggregateRootId = Guid.Empty,
-            //    MessageId = Guid.NewGuid(),
-            //    Temperature = message.Temperature,
-            //    TimeStamp = time
-            //};
-
-            ////var eventToPublish = "event:" + receivedMessageStr;
-
-            //Console.WriteLine($"{DateTime.Now} Publishing event {receivedMessageStr} to Kafka");
-            //var bytes = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(eventToPublish));
-
-            //var deliveryReport = await _kafkaproducer.ProduceAsync(topicName, null, bytes);                
-
-            //Console.WriteLine($"{DateTime.Now} Pushed Event {eventToPublish} to Kafka with result {deliveryReport?.Error?.Reason}");
-            //    // Tasks are not waited on synchronously (ContinueWith is not synchronous),
-            //    // so it's possible they may still in progress here.
+            Console.WriteLine($"Sent a UpdateSensorTempCommand");          
         }
     }
 }

@@ -6,6 +6,8 @@ using System.Xml;
 using Autofac;
 using Autofac.Extensions.DependencyInjection;
 using Common;
+using Common.messagebus;
+using GreenPipes;
 using HardwareService.command_data_access;
 using HardwareService.Controllers;
 using HardwareService.domain.consumers;
@@ -72,7 +74,7 @@ namespace HardwareService
 
            
 
-            builder.RegisterInstance(new BusSettings{HostAddress = "localhost",Username = "guest", Password = "guest",QueueName = "SensorEvents"}).Named<BusSettings>("Events");
+           // builder.RegisterInstance(new BusSettings{HostAddress = "localhost",Username = "guest", Password = "guest",QueueName = "SensorEvents"}).Named<BusSettings>("Events");
             builder.RegisterInstance(new BusSettings { HostAddress = "localhost", Username = "guest", Password = "guest", QueueName = "SensorCommands" }).Named<BusSettings>("Commands");
 
             builder.RegisterModule<BusModule>();
@@ -94,15 +96,7 @@ namespace HardwareService
             return new AutofacServiceProvider(container);
 
         }
-
-        private class BusSettings
-        {
-            public string HostAddress { get; set; }
-            public string Username { get; set; }
-            public string Password { get; set; }
-
-            public string QueueName { get; set; }
-        }
+      
 
         class BusModule :Module
         {
@@ -154,12 +148,16 @@ namespace HardwareService
                                 h.Username(busSettings.Username);
                                 h.Password(busSettings.Password);
                             });
-
+                          
                             cfg.ReceiveEndpoint(busSettings.QueueName, e =>
                              {
                                  e.Consumer(() => new SensorCommandsConsumer(sensorRepo, loggerFactory.CreateLogger("CommandConsumerLogger")));
                              });
+
+                            cfg.UseConcurrencyLimit(1);
                         });
+                       
+
                         return busControl;
                     })
                     .As<IBusControl>()

@@ -21,8 +21,6 @@ namespace HardwareService
             ConnectionMultiplexer redis = ConnectionMultiplexer.Connect("localhost:6379");
             _db = redis.GetDatabase();
 
-            //ConnectionMultiplexer redis = ConnectionMultiplexer.Connect("localhost:6379");
-            //IDatabase db = redis.GetDatabase();
             foreach (var ep in redis.GetEndPoints())
             {
                 var server = redis.GetServer(ep);

@@ -9,7 +9,7 @@ namespace HardwareService.domain.query_model
     {
         public Guid SensorId;
         public string Name;
-        public int Temperature;
+        public float Temperature;
 
         public TempSensorDto()
         {
