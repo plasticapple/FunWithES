@@ -1,4 +1,7 @@
 ﻿using System;
+using System.Net;
+using System.Net.Security;
+using System.Security.Cryptography.X509Certificates;
 using Common;
 using Common.messagebus;
 using MassTransit;
@@ -63,16 +66,23 @@ namespace RaspberryDriver
 
         public void Subscribe()
         {
-            //var config = new Dictionary<string, object> {
-            //    { "bootstrap.servers", "PLAINTEXT://kafkaserver:9092" },
-            //    { "group.id", "foo" },
-            //    {"client.id", "RaspberryDriver"}                
-            //    };
-            //_kafkaproducer = new Producer(config);
 
-            // create client instance
-            _client = new MqttClient("localhost");
 
+            var caCert = new X509Certificate2(@"C:\playground\FunWithES\democert\ca.crt", @"1234");
+            var keyCert = new X509Certificate2(@"C:\playground\FunWithES\democert\cert.pfx", @"");
+
+
+
+            //var store = new X509Store(StoreName.Root, StoreLocation.CurrentUser);
+            //store.Open(OpenFlags.ReadWrite);
+            //store.Add(keyCert);
+            //store.Close();
+
+            // create client instance           
+           
+
+            _client = new MqttClient("localhost",8883, true, caCert, keyCert, MqttSslProtocols.TLSv1_0, client_RemoteCertificateValidationCallback);
+         
             // register to message received
             _client.MqttMsgPublishReceived += Client_MqttMsgPublishReceived;
 
@@ -85,6 +95,11 @@ namespace RaspberryDriver
             // subscribe to the topic "/home/temperature" with QoS 2
             _client.Subscribe(new string[] { "/hardware/tempsensors" }, new byte[] { MqttMsgBase.QOS_LEVEL_AT_LEAST_ONCE });
             
+        }
+
+        private bool client_RemoteCertificateValidationCallback(object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors sslpolicyerrors)
+        {
+            return true;
         }
 
         public void UnSubscribe()

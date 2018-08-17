@@ -14,6 +14,7 @@ using HardwareService.domain.consumers;
 using HardwareService.domain.events;
 using MassTransit;
 using MassTransit.Logging;
+using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 
 
@@ -72,15 +73,31 @@ namespace HardwareService.command_data_access
             {
                 
                 bool cancelled = false;
+                int eventsCount = 0;
+                var starting = false;
 
-                // SensorEventConsumers handlers = new SensorEventConsumers(_logger);
+                var topicStates = new HashSet<string>();
+
+                KafkaTopics.ForEach(a=>topicStates.Add(a.ToString()));
+
+                var watch = new Stopwatch();
+
+                var perf = new PerfHelper(_logger);
+                perf.Startup();
+
+
 
                 consumer.OnMessage += (_, msg) =>
                 {
+                    //if (!starting)
+                    //    _logger.LogInformation($" processing on message during restoring events took : {watchmessageGap.Elapsed}");
+                    perf.StartProcessingCounters(msg.Key);
+                    watch.Restart();
                     manualResetEvent.Reset();
-                    //var endp = busconnectionEvents.GetSendEndpoint(new Uri("rabbitmq://localhost/SensorEvents")).Result;
 
-                    var topicType = KafkaTopics.FirstOrDefault(a => a.ToString() == msg.Topic);
+                    if (!starting)
+                        eventsCount++;
+                        var topicType = KafkaTopics.FirstOrDefault(a => a.ToString() == msg.Topic);
                     if (topicType == default(Type))
                         throw new Exception("Something went wrong here");
                     
@@ -90,20 +107,29 @@ namespace HardwareService.command_data_access
                     var @event = ev as Event;
                     if (@event != null && @event.Id != Guid.Empty)
                     {                       
-                        eventProcessor.Process((dynamic) @event);
-                        // endp.Send(ev);
-                        //handlers.Consume(ev);
+                        eventProcessor.Process((dynamic) @event);                       
                     }
 
+                    perf.EndProcessingCounters(msg.Key);
                     manualResetEvent.Set();
+
+                    //_logger.LogInformation($" processing {@event.Id} event took : {watch.Elapsed}");
+                    //watchmessageGap.Restart();
 
                 };
 
-                var starting = false;
+               
                 consumer.OnPartitionEOF += async (sender, offset) =>
                 {                 
                     if (starting) return;
 
+                    topicStates.Remove(offset.Topic);
+                    
+                    if (topicStates.Count > 0)
+                        return;
+
+                    _logger.LogInformation($"Finished Restoring state  from topics : {string.Join(",", KafkaTopics)} , {eventsCount} events");
+                    perf.Startup();
                     starting = true;
 
                     var handle = await busconnectionCommands.StartAsync();
@@ -124,9 +150,10 @@ namespace HardwareService.command_data_access
                         partitions.Select(p => new TopicPartitionOffset(p.Topic, p.Partition, Offset.Beginning))
                             .ToList();
                     consumer.Assign(fromBeginning);
+                    _logger.LogInformation($"Begin Restoring state from topics : {string.Join(",", KafkaTopics)} ");
                 };
 
-                
+
                 consumer.Subscribe(KafkaTopics.Select(a=>a.ToString()));
 
                 while (!cancelled)

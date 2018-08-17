@@ -2,6 +2,8 @@ package main
 
 import (
 	"bufio"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -20,11 +22,55 @@ type Message struct {
 }
 
 func main() {
+
+	cert, err := tls.LoadX509KeyPair("../democert/server.crt", "../democert/server.key")
+	if err != nil {
+		panic(err)
+	}
+
+	certpool := x509.NewCertPool()
+	pemCerts, err := ioutil.ReadFile("../democert/ca.pem")
+	if err == nil {
+		certpool.AppendCertsFromPEM(pemCerts)
+	}
+
+	
+	
+
+	//log.Println(certtest)
+
+	connOpts := &mqtt.ClientOptions{
+		ClientID:             "RPI00000",
+		CleanSession:         true,
+		AutoReconnect:        true,
+		MaxReconnectInterval: 1 * time.Second,
+		//KeepAlive:            1 * time.Second,
+		TLSConfig: tls.Config{
+			// RootCAs = certs used to verify server cert.
+		RootCAs: certpool,
+		// ClientAuth = whether to request cert from server.
+		// Since the server is set up for SSL, this happens
+		// anyways.
+		ClientAuth: tls.NoClientCert,
+		// ClientCAs = certs used to validate client cert.
+		ClientCAs: nil,
+		// InsecureSkipVerify = verify that cert contents
+		// match server. IP matches what is in cert etc.
+		InsecureSkipVerify: true,
+		// Certificates = list of certs client sends to server.
+		Certificates: []tls.Certificate{cert},
+			},
+		
+		Username:  "unisondriver",
+		Password:  "unisondriver",
+	}
+
 	fmt.Println("hello")
-	opts := mqtt.NewClientOptions().AddBroker("tcp://10.185.20.156:1883").SetClientID("SensorDriver1")
-	opts.SetUsername("unisondriver")
-	opts.SetPassword("unisondriver")
+	opts := connOpts.AddBroker("tcps://localhost:8883")
+	//opts.SetUsername()
+	//opts.SetPassword("unisondriver")
 	client := mqtt.NewClient(opts)
+
 	token := client.Connect()
 
 	if token.Wait(); token.Wait() && token.Error() != nil {
